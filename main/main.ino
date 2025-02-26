@@ -131,15 +131,19 @@ void draw_screen(void) {
   do {
     // Draw score frame:
     u8g2.drawFrame(SCORE_AREA.x_offset, SCORE_AREA.y_offset, SCORE_AREA.w, SCORE_AREA.h);
-    //u8g2.drawStr(SCORE_AREA.x_offset + 2, SCORE_AREA.y_offset + 2, "Hello There");
-    //u8g2.drawUTF8(SCORE_AREA.x_offset + 2, SCORE_AREA.y_offset + 2, s);
-    //u8g2.setCursor(SCORE_AREA.x_offset + 2, SCORE_AREA.y_offset + 2);
-    //u8g2.print(F("Score:"));
+
+    // Here are some "magic" numbers that affect the position of the text at this time
+    u8g2.setFont(u8g2_font_t0_11_mf);
+    u8g2.drawStr(SCORE_AREA.x_offset + 8, SCORE_AREA.y_offset + 14, "Score:");
+    u8g2.setCursor(SCORE_AREA.x_offset + 10 + 8*5 + 4, SCORE_AREA.y_offset + 14);
+    u8g2.print(dir.x);
+  
     // Draw game frame:
     u8g2.drawFrame(GAME_AREA.x_offset, GAME_AREA.y_offset, GAME_AREA.w, GAME_AREA.h);
     
-    // Draw the actual snake
+    // Draw the actual snake (should be a loop as the snake grows)
     u8g2.drawCircle(head.x_pos, head.y_pos, head.radius);
+
   } while(u8g2.nextPage() && !is_game_over);
 }
 
@@ -157,6 +161,7 @@ void setup() {
   // put your setup code here, to run once:
   u8g2.begin();
   u8g2.setContrast(255);
+
 }
 
 void loop() {
