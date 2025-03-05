@@ -67,6 +67,7 @@ const uint8_t GRID_SLOT_SIDE = 6;
 const int8_t MAX_SNAKE_LEN = 20;
 const uint8_t SNAKE_HEAD_RADIUS = 3;
 const uint8_t SNAKE_BODY_RADIUS = 1;
+const uint8_t FRUIT_RADIUS = 2;
 
 const uint8_t FRUIT_TABLE[] = {
 	12, 54, 24, 90,   6,
@@ -118,10 +119,11 @@ void loop() {
   delay(50);
   if (is_game_over) {
     game_over_screen();
+  } else {
+    read_input();
+    move_snake();
+    draw_screen();
   }
-  read_input();
-  move_snake();
-  draw_screen();
 }
 
 
@@ -150,6 +152,10 @@ void read_input() {
     dir.x = 1;
     dir.y = 0;
   }
+  if (!digitalRead(BTN_RESET)) {
+    init_game();
+    delay(10);
+  }
 }
 
 void init_game() {
@@ -160,9 +166,13 @@ void init_game() {
 	snake[0].radius = head.radius;
 	
 	// Game set
-	add_fruit();
 	score = 0;
   is_game_over = 0;
+	add_fruit();
+  
+  // Start from stopped mode:
+  dir.x = 0;
+  dir.y = 0;
 
 	// Rest of the body:
 	for (uint8_t i = 1; i < MAX_SNAKE_LEN; i++) {
@@ -173,22 +183,6 @@ void init_game() {
 	}
 }
 
-
-void game_over_screen() { 
-  u8g2.firstPage();
-  do {
-    // Here are some "magic" numbers that affect the position of the text at this time
-    u8g2.setFont(u8g2_font_t0_11_mf);
-    u8g2.drawStr(40, 20, "Game Over!");
-    u8g2.drawStr(60, 20, "Score:");
-    u8g2.setCursor(90, 20);
-    u8g2.print(dir.x);
-  } while(u8g2.nextPage());
-  
-  if (!digitalRead(BTN_START)) {
-    init_game();
-  }
-}
 
 void add_snake_part() {
   for (int8_t i = 1; i < MAX_SNAKE_LEN; i++) {
@@ -210,6 +204,7 @@ void add_fruit() {
 	// Using constant table we can easily get desired output that is easier to test:
 	fruit.x_pos = FRUIT_TABLE[ score % (sizeof(FRUIT_TABLE) / sizeof(uint8_t))];
 	fruit.y_pos = FRUIT_TABLE[ r %     (sizeof(FRUIT_TABLE) / sizeof(uint8_t))];
+  fruit.radius = FRUIT_RADIUS;
 }
 
 /*
@@ -268,6 +263,26 @@ void move_snake() {
 
 }
 
+/*
+* Drawing the end screen for user.
+*/
+void game_over_screen() { 
+  //u8g2.clearDisplay();
+  u8g2.firstPage();
+  do {
+    // Here are some "magic" numbers that affect the position of the text at this time
+    u8g2.setFont(u8g2_font_t0_11_mf);
+    u8g2.drawStr(40, 20, "Game Over!");
+    u8g2.drawStr(40, 40, "Score:");
+    u8g2.setCursor(90, 40);
+    u8g2.print(score);
+  } while(u8g2.nextPage());
+  
+  if (!digitalRead(BTN_START)) {
+    init_game();
+    delay(10);
+  }
+}
 
 /*
  Function that handles drawing to screen (essentially renderer)
@@ -283,7 +298,7 @@ void draw_screen(void) {
     u8g2.setFont(u8g2_font_t0_11_mf);
     u8g2.drawStr(SCORE_AREA.x_offset + 8, SCORE_AREA.y_offset + 14, "Score:");
     u8g2.setCursor(SCORE_AREA.x_offset + 10 + 8*5 + 4, SCORE_AREA.y_offset + 14);
-    u8g2.print(dir.x);
+    u8g2.print(score);
   
     // Draw game frame:
     u8g2.drawFrame(GAME_AREA.x_offset, GAME_AREA.y_offset, GAME_AREA.w, GAME_AREA.h);
@@ -292,6 +307,8 @@ void draw_screen(void) {
     for (uint8_t i = 0; i < MAX_SNAKE_LEN; i++) {
     	u8g2.drawCircle(snake[i].x_pos, snake[i].y_pos, snake[i].radius);
     }
+    u8g2.drawCircle(fruit.x_pos, fruit.y_pos, fruit.radius);
+    
 
   } while(u8g2.nextPage() && !is_game_over);
 }
