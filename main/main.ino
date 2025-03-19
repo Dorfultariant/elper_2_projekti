@@ -62,7 +62,8 @@ struct GameObject {
 // NOTE(temppu) Check also the HEAD_COORD_XY and FRUIT TABLE
 const uint8_t GRID_SLOT_SIDE = 5;
 
-const uint8_t MAX_SNAKE_LEN = 20;
+const uint8_t MAX_SNAKE_LEN = 50;
+
 const uint8_t SNAKE_HEAD_RADIUS = 2;
 const uint8_t SNAKE_BODY_RADIUS = 1;
 const uint8_t FRUIT_RADIUS = 1;
@@ -92,7 +93,6 @@ const struct DrawArea GAME_AREA = { .x_offset = 0, .y_offset = 0, .w = 127, .h =
 const struct DrawArea SCORE_AREA = { .x_offset = 0, .y_offset = 102, .w = 126, .h = 26 };
 
 volatile struct SnakeDirection dir = { 0, 0 };
-volatile struct SnakeDirection prev = { 0, 0 };
 
 volatile struct GameObject snake[MAX_SNAKE_LEN];
 volatile struct GameObject fruit = { .x_pos = 0, .y_pos = 0, .radius = 0 };
@@ -129,7 +129,12 @@ void setup() {
 }
 
 void loop() {
-  delay(100);
+  // Unfortunately, overhead from u8g2lib and not so efficient snake logic, the game is not that hard
+  int8_t d = 50 - score * 5;
+  if (d >= 5) {
+    delay(d);
+  }
+
   if (is_game_over) {
     game_over_screen();
   } else {
@@ -145,27 +150,26 @@ void loop() {
 * This is based on coordinate system commonly found in game development
 * where upper left corner is (0,0) (x,y) 
 * 
-* # NOTE THIS IS SUBJECT TO CHANGE RADICALLY
+* # NOTE(temppu) 
 * Do we want INTERRUPTS and thus propably bugs / undefined behaviour?
 */
 void read_input() {
-  if (!digitalRead(BTN_UP)) {
+  if (!digitalRead(BTN_UP) && dir.y == 0) {
     dir.x = 0;
     dir.y = -1;
-  } else if (!digitalRead(BTN_DOWN)) {
+  } else if (!digitalRead(BTN_DOWN) && dir.y == 0) {
     dir.x = 0;
     dir.y = 1;
   }
-  if (!digitalRead(BTN_LEFT)) {
+  if (!digitalRead(BTN_LEFT) && dir.x == 0) {
     dir.x = -1;
     dir.y = 0;
-  } else if (!digitalRead(BTN_RIGHT)) {
+  } else if (!digitalRead(BTN_RIGHT) && dir.x == 0) {
     dir.x = 1;
     dir.y = 0;
   }
   if (!digitalRead(BTN_RESET)) {
     init_game();
-    delay(10);
   }
 }
 
@@ -230,21 +234,15 @@ void add_fruit() {
 	go ahead.
 */
 void move_snake() {
+/*
   // Snake shouldn't be able to "reverse" where it came from:
-  if (!(
-    (0 > dir.x * prev.x) || (0 > dir.y * prev.y))) {
-    
-    int s = dir.x * prev.x;
-    int t = dir.y * prev.y;
+  if (!((0 > dir.x * prev.x) || (0 > dir.y * prev.y))) {
     prev.x = dir.x;
     prev.y = dir.y;
-    Serial.println("###");
-    Serial.println(s);
-    Serial.println(t);
   }
-
-  int8_t n_x = snake[0].x_pos + prev.x * GRID_SLOT_SIDE;
-  int8_t n_y = snake[0].y_pos + prev.y * GRID_SLOT_SIDE;
+*/
+  int8_t n_x = snake[0].x_pos + dir.x * GRID_SLOT_SIDE;
+  int8_t n_y = snake[0].y_pos + dir.y * GRID_SLOT_SIDE;
 
   // Checks whether the snake goes out of GAME_AREA bounds:
   if (GAME_AREA.x_offset > n_x || GAME_AREA.w < n_x || GAME_AREA.y_offset > n_y || GAME_AREA.h < n_y) {
@@ -281,12 +279,6 @@ void move_snake() {
   // Update the head to new slot:
   snake[0].x_pos = n_x;
   snake[0].y_pos = n_y;
-
-  //Serial.println("#");
-  //Serial.print(snake[0].x_pos);
-  //Serial.println(snake[0].y_pos);
-  //Serial.print(fruit.x_pos);
-  //Serial.println(fruit.y_pos);
 }
 
 /*
