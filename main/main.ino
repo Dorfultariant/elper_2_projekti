@@ -18,6 +18,7 @@ const int OLED_SDA = A4;
 const int OLED_SCL = A5;
 
 // Constructor for our OLED (There are many different ones, I found it by trial and error)
+// Src: https://github.com/olikraus/u8g2/wiki/u8g2setupcpp
 U8G2_SH1107_SEEED_128X128_2_HW_I2C u8g2(U8G2_R0, OLED_SCL, OLED_SDA);
 
 struct DrawArea {
@@ -62,16 +63,22 @@ struct GameObject {
 // NOTE(temppu) Check also the HEAD_COORD_XY and FRUIT TABLE
 const uint8_t GRID_SLOT_SIDE = 5;
 
-const uint8_t MAX_SNAKE_LEN = 50;
+const uint8_t MAX_SNAKE_LEN = 100;
 
 const uint8_t SNAKE_HEAD_RADIUS = 2;
 const uint8_t SNAKE_BODY_RADIUS = 1;
+
 const uint8_t FRUIT_RADIUS = 1;
+
+const uint8_t ROCK_RADIUS = 4;
+
 const uint8_t FRAME_THICKNESS = 1;
 
 // NOTE(temppu) If the GRID_SLOT_SIDE is odd, add 1 to it for this calculation
 // With GRID_SLOT_SIZE = 5, FRAME_THICKNESS = 1 the result should be 4, so head start @(4,4)
+// #WARNING CHANGE START POINT
 const uint8_t HEAD_COORD_XY = (GRID_SLOT_SIDE + 1) / 2;
+
 
 // NOTE(temppu) Coordinates in this table should have the same divisibility as the HEAD_COORD_XY
 const uint8_t FRUIT_TABLE[] = {
@@ -81,6 +88,12 @@ const uint8_t FRUIT_TABLE[] = {
   60, 30, 15, 50, 70
 };
 
+const uint8_t ROCK_TABLE[] = {
+  15, 45, 20, 85, 5,
+  55, 65, 15, 70, 10,
+  40, 60, 65, 35, 25,
+  65, 35, 15, 50, 70
+};
 /*
 * So we have 128 pixels in each direction on the display. Width is reduced from 128 px to 126px for the game grid and with 5x5 px tile, we should use 125 as the limit spot.
 * pixels start from 0 so max pixel position is 127. With the previous specification, this is reduced for grid range [1, 126] which should give 126 pixels to work with.
@@ -97,7 +110,10 @@ volatile struct SnakeDirection dir = { 0, 0 };
 volatile struct GameObject snake[MAX_SNAKE_LEN];
 volatile struct GameObject fruit = { .x_pos = 0, .y_pos = 0, .radius = 0 };
 
+volatile struct GameObject rock = { .x_pos = 0, .y_pos = 0, .radius = 0 };
+
 volatile bool is_game_over = 0;
+// NOTE(temppu) This variable has double meaning, it is used as a basis for snake current length
 volatile int8_t score = 0;
 
 // Function declarations:
@@ -130,10 +146,10 @@ void setup() {
 
 void loop() {
   // Unfortunately, overhead from u8g2lib and not so efficient snake logic, the game is not that hard
-  int8_t d = 50 - score * 5;
+  /*int8_t d = 50 - score * 5;
   if (d >= 5) {
     delay(d);
-  }
+  }*/
 
   if (is_game_over) {
     game_over_screen();
@@ -174,16 +190,7 @@ void read_input() {
 }
 
 void init_game() {
-  // Head
-  // This seeds the actual positioning of each snake part on the grid
-  // The .x .y should be the CENTER of the grid when using CIRCLE as the bodypart
-  // So, if we have 5x5 grid and the first slot starts from (1,1) and ends (6,6)
-  // which would result to .x = 4 .y = 4 as the head start
-  struct GameObject head = { .x_pos = HEAD_COORD_XY, HEAD_COORD_XY, SNAKE_HEAD_RADIUS };
-  snake[0].x_pos = head.x_pos;
-  snake[0].y_pos = head.y_pos;
-  snake[0].radius = head.radius;
-
+  
   // Game set
   score = 0;
   is_game_over = 0;
@@ -193,37 +200,45 @@ void init_game() {
   dir.x = 0;
   dir.y = 0;
 
+  // Head
+  // This seeds the actual positioning of each snake part on the grid
+  // The .x .y should be the CENTER of the grid when using CIRCLE as the bodypart
+  // So, if we have 5x5 grid and the first slot starts from (1,1) and ends (6,6)
+  // which would result to .x = 4 .y = 4 as the head start
+  snake[0].x_pos = HEAD_COORD_XY;
+  snake[0].y_pos = HEAD_COORD_XY;
+  snake[0].radius = SNAKE_HEAD_RADIUS;
+    
   // Rest of the body:
   for (uint8_t i = 1; i < MAX_SNAKE_LEN; i++) {
-    struct GameObject body = { 0, 0, 0 };
-    snake[i].x_pos = body.x_pos;
-    snake[i].y_pos = body.y_pos;
-    snake[i].radius = body.radius;
+    snake[i].x_pos = 0;
+    snake[i].y_pos = 0;
+    snake[i].radius = 0;
   }
 }
 
 
 void add_snake_part() {
-  for (int8_t i = 1; i < MAX_SNAKE_LEN; i++) {
-    if (snake[i].radius == 0) {
-      // Add new bodypart outside of the screen
-      struct GameObject n_body = { -10, -10, SNAKE_BODY_RADIUS };
-      snake[i].x_pos = n_body.x_pos;
-      snake[i].y_pos = n_body.y_pos;
-      snake[i].radius = n_body.radius;
-      break;
-    }
-  }
+  snake[score + 1].x_pos = -10;
+  snake[score + 1].y_pos = -10;
+  snake[score + 1].radius = SNAKE_BODY_RADIUS;
 }
 
-
+// Selects fruits spot from specified table "randomly".   
 void add_fruit() {
-  int8_t r = random(0, (sizeof(FRUIT_TABLE) / sizeof(uint8_t)));
+  uint8_t size = (sizeof(FRUIT_TABLE) / sizeof(uint8_t));
+  int8_t r = random(0, size);
+  uint8_t x_idx = score % size;
+  uint8_t y_idx = r % size;
 
   // Using the constant table FRUIT_TABLE we can easily get desired output that is easier to test:
-  fruit.x_pos = HEAD_COORD_XY + FRUIT_TABLE[score % (sizeof(FRUIT_TABLE) / sizeof(uint8_t))];
-  fruit.y_pos = HEAD_COORD_XY + FRUIT_TABLE[r % (sizeof(FRUIT_TABLE) / sizeof(uint8_t))];
+  fruit.x_pos = HEAD_COORD_XY + FRUIT_TABLE[x_idx];
+  fruit.y_pos = HEAD_COORD_XY + FRUIT_TABLE[y_idx];
   fruit.radius = FRUIT_RADIUS;
+  
+  rock.x_pos = HEAD_COORD_XY + ROCK_TABLE[y_idx];
+  rock.y_pos = HEAD_COORD_XY + ROCK_TABLE[r % size];
+  rock.radius = ROCK_RADIUS;
 }
 
 /*
@@ -234,13 +249,7 @@ void add_fruit() {
 	go ahead.
 */
 void move_snake() {
-/*
-  // Snake shouldn't be able to "reverse" where it came from:
-  if (!((0 > dir.x * prev.x) || (0 > dir.y * prev.y))) {
-    prev.x = dir.x;
-    prev.y = dir.y;
-  }
-*/
+  // Snake head new position
   int8_t n_x = snake[0].x_pos + dir.x * GRID_SLOT_SIDE;
   int8_t n_y = snake[0].y_pos + dir.y * GRID_SLOT_SIDE;
 
@@ -250,24 +259,28 @@ void move_snake() {
     return;
   }
 
+  // Check if head collides with rock
+  if (rock.x_pos == n_x && rock.y_pos == n_y) {
+    // Score is used when iterating through the snake
+    is_game_over = 1;
+    return;
+  }
+
   // Check if we can collect fruit:
   if (fruit.x_pos == n_x && fruit.y_pos == n_y) {
+    // Score is used when iterating through the snake
     score++;
     add_snake_part();
     add_fruit();
   }
 
   // We need to iterate through the snake to check if head collides with the body.
-  for (int8_t i = MAX_SNAKE_LEN; i > 0; i--) {
-    // As we iterate backwards through the snake, we move only parts that need moving:
-    if (snake[i].radius == 0) {
-      continue;
-    }
-    // Does indeed update the head size to body as well:
-    // snake[i] = snake[i-1];
-    /* This does not */
+  // Score keeps track of the snakes length, this will propably result to noticeable slowing down of the game
+  // as score increases
+  for (int8_t i = score; i > 0; i--) {
     snake[i].x_pos = snake[i - 1].x_pos;
     snake[i].y_pos = snake[i - 1].y_pos;
+    snake[i].radius = SNAKE_BODY_RADIUS;
 
     // Check the self collision
     if (snake[i].x_pos == n_x && snake[i].y_pos == n_y) {
@@ -323,12 +336,14 @@ void draw_screen(void) {
 
     // Draw the actual snake:
     for (uint8_t i = 0; i < MAX_SNAKE_LEN; i++) {
+      if (snake[i].radius == 0) break;
       // Draws a circle, where the x and y given are the center position, so should be center of the grid slot
       u8g2.drawCircle(snake[i].x_pos, snake[i].y_pos, snake[i].radius);
     }
+    
     // Draws a circle, where the x and y given are the center position, so should be center of the grid slot
     u8g2.drawCircle(fruit.x_pos, fruit.y_pos, fruit.radius);
-
+    u8g2.drawCircle(rock.x_pos, rock.y_pos, rock.radius);
 
   } while (u8g2.nextPage() && !is_game_over);
 }
