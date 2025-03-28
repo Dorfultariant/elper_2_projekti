@@ -1,6 +1,12 @@
 // https://github.com/adafruit/Adafruit_SH110x/blob/master/examples/SH1107_128x128/SH1107_128x128.ino
 #include <U8g2lib.h>
 
+
+
+// NOTE To Disable Input randomization, this define can be commented
+#define EXPERIMENTAL
+
+
 // Pin connections:
 const int BTN_RIGHT = 2;
 const int BTN_UP = 3;
@@ -8,8 +14,7 @@ const int BTN_DOWN = 4;
 const int BTN_LEFT = 5;
 
 const int BTN_START = 6;
-const int BTN_RESET = 7;
-const int BTN_DIFFICULTY = 8;
+const int BTN_DIFFICULTY = 7;
 
 /* I2C
 * SDA Serial Data
@@ -35,7 +40,7 @@ struct SnakeDirection {
 };
 
 /* 
-* Keep as small as possible (currently 24 bits or 3 bytes) 
+* Keep as small as possible 
 * option to remove radius but then again it is handy if there are multiple 
 * different instances of objects.
 * And this not likely to be an issue either way...
@@ -48,49 +53,58 @@ struct GameObject {
 
 
 /*
- Lets think about the game area and the snake size:
- Snake head should be bigger than rest of the body
- Snake head can move between "grid" slots filling the entire grid
- Snake bodypart should have atleast 1 pixel from grid border
- Each part should be contained within their own grid slot
- 
- Head can be inside 5x5 sized slot with circle radius of 2.
- Body fits inside the grid slot and should be smaller than the head.
- So the head size is the grid slot defining size.
-
- GRID_SLOT_SIDE defines only the part that the snake part can be within.
- So the game area has 1 pixel thick border all around which reduces the game area by 1 pixel on each side so 2 pixels horizontal and vertical
+* Lets think about the game area and the snake size:
+* Snake head should be bigger than rest of the body
+* Snake head can move between "grid" slots filling the entire grid
+* Snake bodypart should have atleast 1 pixel from grid border
+* Each part should be contained within their own grid slot
+* 
+* Head can be inside 5x5 sized slot with circle radius of 2.
+* So the head size is the grid slot defining size.
+*
+* GRID_SLOT_SIDE defines only the square size that the snake part can be within.
+* So the game area has 1 pixel thick border all around which reduces the game area by 1 pixel on each side so 2 pixels horizontal and vertical
 */
 // NOTE(temppu) Check also the INIT_POS_MULT and FRUIT TABLE
 const uint8_t GRID_SLOT_SIDE = 5;
 
+// Defines the maximum size of the snake, after reaching this, the snake size can not grow anymore.
 const uint8_t MAX_SNAKE_LEN = 100;
 
-// Multiplier to define the starting position NOTE(temppu) might collide with FRUIT_TABLE / ROCK_TABLE
+// Multiplier to define the starting position NOTE(temppu) might cause collisions with positions defined in FRUIT_TABLE / ROCK_TABLE 
 const uint8_t INIT_POS_MULT = 6;
 const uint8_t SNAKE_HEAD_RADIUS = 2;
 const uint8_t SNAKE_BODY_RADIUS = 1;
 
 const uint8_t FRUIT_RADIUS = 1;
-
 const uint8_t ROCK_RADIUS = 4;
 
-const uint8_t FRAME_THICKNESS = 1;
-
-// NOTE(temppu) Coordinates in this table should have the same divisibility as the INIT_POS_MULT
+// NOTE(temppu) Coordinates in these tables should have the divisibility of GRID_SLOT_SIDE
 const uint8_t FRUIT_TABLE[] = {
-  10, 50, 25, 90, 10,
-  40, 75, 10, 80, 20,
-  70, 60, 65, 35, 25,
-  60, 30, 20, 50, 70
+  90, 40, 120, 90, 105, // X values 5->120
+  75, 10,  80, 20,  90, // X values 5->120
+   5, 75, 115, 80,  20, // X values 5->120
+  55, 35,  45, 95, 100, // X values 5->120
+  
+  85, 10, 60, 75,  90,  // Y values 5->90   
+  70, 15, 65, 35,  25,  // Y values 5->90   
+  60, 30, 20, 50,  90,  // Y values 5->90
+  45, 65, 35, 25,   5   // Y values 5->90 
 };
 
 const uint8_t ROCK_TABLE[] = {
-  45,  5, 85, 
-  55, 35, 45,
-  45, 65, 35, 
-  85, 15,  5
+  45, 110, 85, 20,  15, // X values 5->120 
+  115, 35, 45, 95, 100, // X values 5->120
+  40, 120, 90, 105,  5, // X values 5->120
+  75,  10, 80, 20,  90, // X values 5->120
+  
+  45,  65, 35, 25,   5, // Y values 5->90  
+  85,  10, 60, 75,  90, // Y values 5->90   
+  60,  30, 20, 50,  90, // Y values 5->90
+  70,  15, 65, 35,  25  // Y values 5->90
 };
+
+
 
 /*
 * So we have 128 pixels in each direction on the display. Width is reduced from 128 px to 126px for the game grid and with 5x5 px tile, we should use 125 as the limit spot.
@@ -100,8 +114,8 @@ const uint8_t ROCK_TABLE[] = {
 * and for height [0, 96] which gives 97 pixels of which 2px for borders and rest for game grid.
 * So the game grid has the size of 125 x 95 px
 */
-const struct DrawArea GAME_AREA = { .x_offset = 1, .y_offset = 1, .w = 125, .h = 95 };
-const struct DrawArea SCORE_AREA = { .x_offset = 0, .y_offset = 102, .w = 126, .h = 26 };
+const struct DrawArea GAME_AREA   = { .x_offset = 1, .y_offset = 1  , .w = 125, .h = 95 };
+const struct DrawArea SCORE_AREA  = { .x_offset = 0, .y_offset = 102, .w = 126, .h = 26 };
 
 const struct SnakeDirection KEYMAP[] = {
   { 0, -1}, // UP
@@ -113,17 +127,16 @@ const struct SnakeDirection KEYMAP[] = {
 volatile struct SnakeDirection dir = { 0, 0 };
 
 volatile struct GameObject snake[MAX_SNAKE_LEN];
-volatile struct GameObject fruit = { .x_pos = 0, .y_pos = 0, .radius = 0 };
-
-volatile struct GameObject rock = { .x_pos = 0, .y_pos = 0, .radius = 0 };
+volatile struct GameObject fruit  = { .x_pos = 0, .y_pos = 0, .radius = 0 };
+volatile struct GameObject rock   = { .x_pos = 0, .y_pos = 0, .radius = 0 };
 
 volatile bool is_game_over = 0;
-// NOTE(temppu) This variable has double meaning, it is used as a basis for snake current length
-volatile int8_t score = 0;
+// NOTE(temppu) This variable has double meaning, it is used as a basis for snake current length and having it as uint8_t the max value is limited to 255 
+volatile uint8_t score = 0;
 
-// NOTE a bit of a challenge
-volatile uint8_t input_button_offset = 0;
-volatile bool is_difficulty_hard = 0;
+// NOTE a bit of a challenge 
+volatile uint8_t  input_button_offset = 0;
+volatile bool     is_difficulty_hard = 0;
 
 // Function declarations:
 void read_input();
@@ -138,33 +151,27 @@ void draw_screen();
 
 
 void setup() {
-  Serial.begin(9600);
   /* Button input_pullups normal HIGH */
-  pinMode(BTN_UP, INPUT_PULLUP);
-  pinMode(BTN_DOWN, INPUT_PULLUP);
-  pinMode(BTN_LEFT, INPUT_PULLUP);
-  pinMode(BTN_RIGHT, INPUT_PULLUP);
+  pinMode(BTN_UP    , INPUT_PULLUP);
+  pinMode(BTN_DOWN  , INPUT_PULLUP);
+  pinMode(BTN_LEFT  , INPUT_PULLUP);
+  pinMode(BTN_RIGHT , INPUT_PULLUP);
 
-  pinMode(BTN_RESET, INPUT_PULLUP);
-  pinMode(BTN_START, INPUT_PULLUP);
+  pinMode(BTN_START     , INPUT_PULLUP);
   pinMode(BTN_DIFFICULTY, INPUT_PULLUP);
 
-  // put your setup code here, to run once:
+  // OLED initialization
   u8g2.begin();
   u8g2.setContrast(255);
 
+  // Game Set
   init_game();
 }
 
 void loop() {
-  // Unfortunately, overhead from u8g2lib and not so efficient snake logic, the game is not that hard
-  int8_t reduce_delay = 50 - score * 5;
-  if (reduce_delay >= 5) {
-    delay(reduce_delay);
-  }
-
   if (is_game_over) {
-    game_over_screen();
+    game_over_screen();   
+    read_input();
   } else {
     read_input();
     move_snake();
@@ -174,35 +181,12 @@ void loop() {
 
 
 /*
-* Function that returns different integer value based on which button is pressed
-* This is based on coordinate system commonly found in game development
-* where upper left corner is (0,0) (x,y) 
-* 
-* # NOTE(temppu) 
-* Do we want INTERRUPTS and thus propably bugs / undefined behaviour?
-*/
-/* ORIGINAL
-void read_input() {
-  if (!digitalRead(BTN_UP) && dir.y == 0) {
-    dir.x = 0;
-    dir.y = -1;
-  } else if (!digitalRead(BTN_DOWN) && dir.y == 0) {
-    dir.x = 0;
-    dir.y = 1;
-  }
-  if (!digitalRead(BTN_LEFT) && dir.x == 0) {
-    dir.x = -1;
-    dir.y = 0;
-  } else if (!digitalRead(BTN_RIGHT) && dir.x == 0) {
-    dir.x = 1;
-    dir.y = 0;
-  }
-  if (!digitalRead(BTN_RESET)) {
-    init_game();
-  }
-}
+* Function to handle user input and set event based on the input.
+* Calls function to set the direction or change difficulty and 
+* resetting the game state.
 */
 void read_input() {
+#ifdef EXPERIMENTAL
   if (!digitalRead(BTN_DIFFICULTY)) {
     is_difficulty_hard = !is_difficulty_hard;
     set_difficulty();
@@ -217,13 +201,33 @@ void read_input() {
   } else if (!digitalRead(BTN_RIGHT)) {
     set_dir(3);
   }
-  if (!digitalRead(BTN_RESET)) {
+  if (!digitalRead(BTN_START)) {
     init_game();
   }
+#else
+  // Original version without input randomization or "difficulty setting"
+  if (!digitalRead(BTN_UP) && dir.y == 0) {
+    set_dir(0);
+  } else if (!digitalRead(BTN_DOWN) && dir.y == 0) {
+    set_dir(1);
+  }
+  if (!digitalRead(BTN_LEFT) && dir.x == 0) {
+    set_dir(2);
+  } else if (!digitalRead(BTN_RIGHT) && dir.x == 0) {
+    set_dir(3);
+  }
+  if (!digitalRead(BTN_START)) {
+    init_game();
+  }
+#endif
 }
 
+/*
+* Function that sets the direction of the snake based on the global KEYMAP[].
+* Checks also against the reversal of the snake.
+*/
 void set_dir(uint8_t btn_idx) {
-  // Get the offset to find from keymap, four inputs -> should be divisible by 4 
+  // Get the offset to find from keymap, four inputs -> should be divisible by 4
   uint8_t key_idx = (btn_idx + input_button_offset) % 4;
 
   // Check if trying to reverse where came from
@@ -236,20 +240,30 @@ void set_dir(uint8_t btn_idx) {
   dir.y = KEYMAP[key_idx].y;
 }
 
+/*
+* Simply changes the state of global variable based on the difficulty setting.
+*/
 void set_difficulty() {
   // Randomizes the inputs
+  #ifdef EXPERIMENTAL
   if (is_difficulty_hard) {
     input_button_offset = random(0,3);
   } else {
     input_button_offset = 0;
   }
+  #else
+   input_button_offset = 0;
+  #endif
 }
 
+/*
+* Function to handle setting and resetting the game state to the beginning.
+*/
 void init_game() {
-  
   // Game set
   score = 0;
   is_game_over = 0;
+
   add_fruit_rock();
 
   set_difficulty();
@@ -262,54 +276,64 @@ void init_game() {
   // This seeds the actual positioning of each snake part on the grid
   // The .x .y should be the CENTER of the grid when using CIRCLE as the bodypart
   // So, if we have 5x5 grid and the first slot starts from (1,1) and ends (6,6)
-  // so with GRID 5 and INIT POS MULT 3 => (15, 15) as start point 
-  snake[0].x_pos = GRID_SLOT_SIDE * INIT_POS_MULT;
-  snake[0].y_pos = GRID_SLOT_SIDE * INIT_POS_MULT;
+  // so with GRID_SLOT_SIDE = 5 and INIT_POS_MULT 3 => (15, 15) as start point 
+  snake[0].x_pos  = GRID_SLOT_SIDE * INIT_POS_MULT;
+  snake[0].y_pos  = GRID_SLOT_SIDE * INIT_POS_MULT;
   snake[0].radius = SNAKE_HEAD_RADIUS;
   
-  // Rest of the body:
+  // Reset rest of the body:
   for (uint8_t i = 1; i < MAX_SNAKE_LEN; i++) {
-    snake[i].x_pos = 0;
-    snake[i].y_pos = 0;
+    snake[i].x_pos  = 0;
+    snake[i].y_pos  = 0;
     snake[i].radius = 0;
   }
 }
 
-
+/*
+* Sets the next body part to be drawn to the screen.
+* Positions the snake outside of view, this is just to prevent accidental collisions with head 
+*   (which could happen depending on the order of calling functions)
+* NOTE move_snake() function should handle setting the parts real position at the tail.
+*/
 void add_snake_part() {
-  snake[score + 1].x_pos = -10;
-  snake[score + 1].y_pos = -10;
+  snake[score + 1].x_pos  = -10;
+  snake[score + 1].y_pos  = -10;
   snake[score + 1].radius = SNAKE_BODY_RADIUS;
 }
 
-// Selects fruits spot from specified table "randomly" the same is done to the rock.   
+/*
+* Function to add fruit and rock to the game area based on fixed positions.
+* This is not ideal and could made simpler, but at this time it works.
+*/
 void add_fruit_rock() {
-  uint8_t fruitT_size = (sizeof(FRUIT_TABLE) / sizeof(uint8_t));
-  uint8_t rockT_size = (sizeof(ROCK_TABLE) / sizeof(uint8_t));
-  
-  int8_t rf = random(0, fruitT_size);
-  int8_t rr = random(0, rockT_size);
-  
-  uint8_t x_idx = score % fruitT_size;
-  uint8_t y_idx = rf % fruitT_size;
-  uint8_t y_idx_rock = rr % rockT_size;
+  // Sizes for each table (this makes it easier to alter const tables)
+  uint8_t fruit_table_size  = (sizeof(FRUIT_TABLE)  / sizeof(FRUIT_TABLE[0]));
+  uint8_t rock_table_size   = (sizeof(ROCK_TABLE)   / sizeof(ROCK_TABLE[0]));
+    
+  // Translate to x,y coordinate indexes that fit in the table sizes
+  // First half is for X values:
+  uint8_t x_idx_fruit       = score % (uint8_t) (fruit_table_size / 2);
+  // Second half is for Y values:
+  uint8_t y_idx_fruit       = fruit_table_size - (1 + x_idx_fruit);
+
+  // Same applies for the rock table:
+  uint8_t x_idx_rock        = score % (uint8_t) (rock_table_size / 2);
+  uint8_t y_idx_rock        = rock_table_size - (1 + x_idx_rock);
 
   // Using the constant table, we can easily get desired output that is easier to test:
-  fruit.x_pos = FRUIT_TABLE[x_idx];
-  fruit.y_pos = FRUIT_TABLE[y_idx];
-  fruit.radius = FRUIT_RADIUS;
+  fruit.x_pos   = FRUIT_TABLE[x_idx_fruit];
+  fruit.y_pos   = FRUIT_TABLE[y_idx_fruit];
+  fruit.radius  = FRUIT_RADIUS;
   
-  rock.x_pos = ROCK_TABLE[y_idx_rock];
-  rock.y_pos = ROCK_TABLE[rr % rockT_size];
-  rock.radius = ROCK_RADIUS;
+  rock.x_pos    = ROCK_TABLE[x_idx_rock];
+  rock.y_pos    = ROCK_TABLE[y_idx_rock];
+  rock.radius   = ROCK_RADIUS;
 }
 
 /*
- 	Function to handle moving the snake (x,y) coordinates
-	and check game over conditions while we are at it.
-
-	If somebody wants to make a more efficient version such as "circle"-like structure
-	go ahead.
+* Function to handle moving the snake (x,y) coordinates
+*	and check game over conditions.
+* Some might say that this function does more than it should but for the scope of this project, I think it is fine.
 */
 void move_snake() {
   // Snake head new position
@@ -331,16 +355,30 @@ void move_snake() {
 
   // Check if we can collect fruit:
   if (fruit.x_pos == n_x && fruit.y_pos == n_y) {
-    // Score is used when iterating through the snake
+    // Score is used when iterating through the snake and should be increased by 1 
+    // having a separate variable would be better but this works.
     score++;
-    add_snake_part();
+    
+    // End the game before value overflows assuming uint8_t  
+    if (score == 255) {
+      is_game_over = 1;
+      return;
+    }
+
+    // Add new bodypart only if the snake max length has not been achieved
+    if (MAX_SNAKE_LEN > score) {
+      add_snake_part();
+    }
+    // We can add fruits and rocks indefinitely
     add_fruit_rock();
   }
 
-  // We need to iterate through the snake to check if head collides with the body.
-  // Score keeps track of the snakes length, this will propably result to noticeable slowing down of the game
-  // as score increases
-  for (int8_t i = score; i > 0; i--) {
+  /* We need to iterate through the snake to check if head collides with the body.
+   * Score keeps track of the snakes length. 
+   * This will propably result to noticeable slowing down of the game as the score increases
+  */
+  // Note that lower bound for iterating through the snake is accounted.
+  for (int8_t i = (score < MAX_SNAKE_LEN ? score : MAX_SNAKE_LEN); i > 0; i--) {
     snake[i].x_pos = snake[i - 1].x_pos;
     snake[i].y_pos = snake[i - 1].y_pos;
     snake[i].radius = SNAKE_BODY_RADIUS;
@@ -348,7 +386,7 @@ void move_snake() {
     // Check the self collision
     if (snake[i].x_pos == n_x && snake[i].y_pos == n_y) {
       is_game_over = 1;
-      break;
+      return;
     }
   }
 
@@ -358,10 +396,9 @@ void move_snake() {
 }
 
 /*
-* Drawing the end screen for user.
+* Function for drawing gameover screen.
 */
 void game_over_screen() {
-  //u8g2.clearDisplay();
   u8g2.firstPage();
   do {
     // Here are some "magic" numbers that affect the position of the text at this time
@@ -371,16 +408,11 @@ void game_over_screen() {
     u8g2.setCursor(90, 40);
     u8g2.print(score);
   } while (u8g2.nextPage());
-
-  if (!digitalRead(BTN_START)) {
-    init_game();
-    delay(10);
-  }
 }
 
 /*
- Function that handles drawing to screen (essentially renderer)
- All drawable elements should be included here and nowhere else.
+* Function that handles drawing to screen (essentially renderer).
+* Updates the score view only when needed and displays the snake based on score.
 */
 void draw_screen(void) {
   u8g2.firstPage();
@@ -388,31 +420,35 @@ void draw_screen(void) {
     // Draw score frame:
     u8g2.drawFrame(SCORE_AREA.x_offset, SCORE_AREA.y_offset, SCORE_AREA.w, SCORE_AREA.h);
 
-    // Here are some "magic" numbers that affect the position of the text at this time
-    u8g2.setFont(u8g2_font_t0_11_mf);
-    u8g2.drawStr(SCORE_AREA.x_offset + 8, SCORE_AREA.y_offset + 14, "Score:");
-    u8g2.setCursor(SCORE_AREA.x_offset + 8 + 8 * 5 + 4, SCORE_AREA.y_offset + 14);
-    u8g2.print(score);
-   
-    if (is_difficulty_hard) {
-      u8g2.drawStr(SCORE_AREA.x_offset + 8 + 8 * 5 + 12, SCORE_AREA.y_offset + 14, "HARD");
-    } else {
-      u8g2.drawStr(SCORE_AREA.x_offset + 8 + 8 * 5 + 12, SCORE_AREA.y_offset + 14, "EASY");
-    }
     
+    // Here are some "magic" numbers that affect the position of the text:
+    const uint8_t Y_OFFSET = 16;
+    
+    u8g2.setFont(u8g2_font_t0_11_mf);
+    u8g2.drawStr(   SCORE_AREA.x_offset + 4         , SCORE_AREA.y_offset + Y_OFFSET, "Score:");
+    u8g2.setCursor( SCORE_AREA.x_offset + 3 + 8 * 5 , SCORE_AREA.y_offset + Y_OFFSET);
+    
+    u8g2.print(score);
+
+    // Show to the user the difficulty in the score section
+    const uint8_t DIFF_X_OFFSET = 8 + 8 * 9 + 12;
+    if (is_difficulty_hard) {
+      u8g2.drawStr(SCORE_AREA.x_offset + DIFF_X_OFFSET, SCORE_AREA.y_offset + Y_OFFSET, "HARD");
+    } else {
+      u8g2.drawStr(SCORE_AREA.x_offset + DIFF_X_OFFSET, SCORE_AREA.y_offset + Y_OFFSET, "EASY");
+    }
     // Draw game frame:
     u8g2.drawFrame(GAME_AREA.x_offset, GAME_AREA.y_offset, GAME_AREA.w, GAME_AREA.h);
 
-    // Draw the actual snake:
-    for (uint8_t i = 0; i < MAX_SNAKE_LEN; i++) {
-      if (snake[i].radius == 0) break;
+    // Draw the actual snake, as the snake grows, it will slow down the game loop:
+    for (uint8_t i = 0; i <= (score < MAX_SNAKE_LEN ? score : MAX_SNAKE_LEN -1); i++) {
       // Draws a circle, where the x and y given are the center position, so should be center of the grid slot
       u8g2.drawCircle(snake[i].x_pos, snake[i].y_pos, snake[i].radius);
     }
     
-    // Draws a circle, where the x and y given are the center position, so should be center of the grid slot
-    u8g2.drawCircle(fruit.x_pos, fruit.y_pos, fruit.radius);
-    u8g2.drawCircle(rock.x_pos, rock.y_pos, rock.radius);
+    // Draws a circle for fruit and rock, where the x and y given are the center position, so should be center of the grid slot
+    u8g2.drawCircle(fruit.x_pos , fruit.y_pos , fruit.radius);
+    u8g2.drawCircle(rock.x_pos  , rock.y_pos  , rock.radius);
 
   } while (u8g2.nextPage() && !is_game_over);
 }
