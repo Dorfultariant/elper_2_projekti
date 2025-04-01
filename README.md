@@ -31,6 +31,6 @@ Oheisessa kuvassa näkyy kuva, jossa eri osat on räjäytetty helpottamaan hahmo
 Laatikko valmistettiin Jamie Hyneman Centerillä LUT:illa ja siihen käytettiin Bodor BCL-1309XU laserleikkuria.
 
 
-![layout image](,/layout.png)
+![layout image](layout.png)
 
 
