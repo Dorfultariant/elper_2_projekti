@@ -27,7 +27,7 @@ Ideana luoda yksinkertainen pelikonsoli Arduino Nanoa hyödyntäen (ATMega 328p)
 Projektiin kuului myös koteloinnin valmistus, ja päätimme käyttää laserleikkuria 3D-tulostimen sijaan nopeuttamaan kehitystä, lyhentämällä iteraatioiden välistä aikaa.
 
 
-Oheisessa kuvassa näkyy kuva, jossa eri osat on räjäytetty helpottamaan hahmotusta kuinka laatikko muodostuu. 
+Oheisessa kuvassa näkyy eri osat räjäytettynä tasolle, joka helpottaa hahmottamaan kuinka laatikko muodostuu. 
 Laatikko valmistettiin Jamie Hyneman Centerillä LUT:illa ja siihen käytettiin Bodor BCL-1309XU laserleikkuria.
 
 
