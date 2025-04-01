@@ -36,22 +36,22 @@ Laatikko valmistettiin J. Hyneman Centerillä LUT:illa ja siihen käytettiin Bod
 
 Testfits:
 
-![testfit 1](images/testfit_1.png)
+![testfit 1](images/testfit_1.jpg)
 
-![testfit 2](images/testfit_2.png)
+![testfit 2](images/testfit_2.jpg)
 
 
 Inside structure:
 
-![inside back](images/inside_back.png)
+![inside back](images/inside_back.jpg)
 
-![inside front](images/inside_front.png)
+![inside front](images/inside_front.jpg)
 
 
 Final outlook:
 
-![back](images/back.png)
+![back](images/back.jpg)
 
-![front](images/front.png)
+![front](images/front.jpg)
 
 
