@@ -34,31 +34,31 @@ Laatikko valmistettiin J. Hyneman Centerillä LUT:illa ja siihen käytettiin Bod
 ![layout image](images/layout.png)
 
 
-Not quite right:
+Ei aivan kohdallaan:
 
 ![notquiteright](images/notquiteright.jpg)
 
 
-Proof of concept:
+Toimiva:
 
 ![concept](images/proof_of_concept.jpg)
 
 
-Testfits:
+Hahmottelua:
 
 ![testfit 1](images/testfit_1.jpg)
 
 ![testfit 2](images/testfit_2.jpg)
 
 
-Inside structure:
+Sisältö:
 
 ![inside back](images/inside_back.jpg)
 
 ![inside front](images/inside_front.jpg)
 
 
-Final outlook:
+Lopputulos:
 
 ![back](images/back.jpg)
 
