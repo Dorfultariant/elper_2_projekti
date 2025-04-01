@@ -31,6 +31,27 @@ Oheisessa kuvassa näkyy eri osat räjäytettynä tasolle, joka helpottaa hahmot
 Laatikko valmistettiin Jamie Hyneman Centerillä LUT:illa ja siihen käytettiin Bodor BCL-1309XU laserleikkuria.
 
 
-![layout image](layout.png)
+![layout image](images/layout.png)
+
+
+Testfits:
+
+![testfit 1](images/testfit_1.png)
+
+![testfit 2](images/testfit_2.png)
+
+
+Inside structure:
+
+![inside back](images/inside_back.png)
+
+![inside front](images/inside_front.png)
+
+
+Final outlook:
+
+![back](images/back.png)
+
+![front](images/front.png)
 
 
